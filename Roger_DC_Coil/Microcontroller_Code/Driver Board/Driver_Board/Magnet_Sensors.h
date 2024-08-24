@@ -19,6 +19,9 @@ class Sensors {
     const float zero_voltage_offset = 0.0774;
     const float sensitivity_multiplier = 0.0463;
 
+    
+
+
     const int numReadings = 10;
     float current_readings[10];
     int current_readIndex = 0;
