@@ -6,10 +6,10 @@
 class Magnet_Sensors {
 private:
   //define pins to sensors
-  int switch_pin;
-  int voltage_pin;
-  int current_pin;
-  int hall_pin;
+  uint8_t switch_pin;
+  uint8_t voltage_pin;
+  uint8_t current_pin;
+  uint8_t hall_pin;
 
 
   // the rest of the parameters are for data processing
@@ -31,12 +31,12 @@ private:
   const float zero_magnetism_offset = 0.0463;
 
   //average the reading
-  float average_read(int num_samples, int pin);
-  int num_average_read = 5;
+  float average_read(uint8_t num_samples, uint8_t pin);
+  uint8_t num_average_read = 5;
 
 public:
   //initialize instance
-  Magnet_Sensors(int switch_pin_input, int voltage_pin_input, int current_pin_input, int hall_pin_input);
+  Magnet_Sensors(uint8_t switch_pin_input, uint8_t voltage_pin_input, uint8_t current_pin_input, uint8_t hall_pin_input);
 
   void init();
 

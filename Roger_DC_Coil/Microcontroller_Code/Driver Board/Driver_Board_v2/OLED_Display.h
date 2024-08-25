@@ -6,7 +6,7 @@
 
 class OLED_Display {
 private:
-  U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2;  // U8g2 object for OLED control
+  U8G2_SH1106_128X64_NONAME_1_HW_I2C u8g2;  // U8g2 object for OLED control
 
 public:
 
@@ -17,7 +17,7 @@ public:
 
   // update OLED display
 
-  void update_display(bool isOn, bool isAC, float voltage, float current, float frequency);
+  void update_display(bool isOn, bool isAC, float voltage, float current, float frequency, bool isConnected);
 };
 
 #endif 

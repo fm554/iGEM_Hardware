@@ -1,6 +1,6 @@
 #include "Magnet_Control.h"
 // initialize instance
-Magnet_Control::Magnet_Control(int EN, int INA, int INB) {
+Magnet_Control::Magnet_Control(uint8_t EN, uint8_t INA, uint8_t INB) {
   _INA = INA;
   _INB = INB;
   _EN = EN;
@@ -8,7 +8,7 @@ Magnet_Control::Magnet_Control(int EN, int INA, int INB) {
 }
 
 // generate one of three wave forms
-int16_t Magnet_Control::ssquare(int size, int position) {
+int8_t Magnet_Control::square_gen(uint8_t size, uint8_t position) {
   /**
   generate one wavelength of square wave. 
   input : size - total number of points
@@ -20,9 +20,8 @@ int16_t Magnet_Control::ssquare(int size, int position) {
     return 100;  // all max amplitude = 100
   } else {
     return -100;
-  }
-
-  int16_t Magnet_Control::sinusoidal(int size, int position) {
+  }};
+  int8_t Magnet_Control::sinusoidal_gen(uint8_t size, uint8_t position) {
     /**
   generate one wavelength of sine wave. 
   input : size - total number of points
@@ -30,10 +29,10 @@ int16_t Magnet_Control::ssquare(int size, int position) {
   output:
           value of curve at position
   **/
-    return (int16_t)(100 * sin(2 * PI * position / size));
+    return (int8_t)(100 * sin(2 * PI * position / size));
   }
 
-  int16_t Magnet_Control::triangular(int size, int position) {
+  int8_t Magnet_Control::triangular_gen(uint8_t size, uint8_t position) {
     /**
   generate one wavelength of triangular wave. 
   input : size - total number of points
@@ -42,9 +41,9 @@ int16_t Magnet_Control::ssquare(int size, int position) {
           value of curve at position
   **/
     if (position <= 0.5 * size) {
-      return (int16_t)(4 * 100 * position / size - 100);
+      return (int8_t)(4 * 100 * position / size - 100);
     } else {
-      return (int16_t)(4 * 100 * (1 - (float)position / size) - 100);
+      return (int8_t)(4 * 100 * (1 - (float)position / size) - 100);
     }
   }
   // initialize pins and registers
@@ -74,40 +73,40 @@ int16_t Magnet_Control::ssquare(int size, int position) {
 
     switch (wavetype) {
       case 0:
-        for (int i = 0; i < numSamples; i++) {
-          waveform[i] = square(numSamples, i);
+        for (uint8_t i = 0; i < num_samples; i++) {
+          waveform[i] = square_gen(num_samples, i);
         }
         break;
       case 1:
-        for (int i = 0; i < numSamples; i++) {
-          waveform[i] = sinusoidal(numSamples, i);
+        for (uint8_t i = 0; i < num_samples; i++) {
+          waveform[i] = sinusoidal_gen(num_samples, i);
         }
         break;
       case 2:
-        for (int i = 0; i < numSamples; i++) {
-          waveform[i] = triangular(numSamples, i);
+        for (uint8_t i = 0; i < num_samples; i++) {
+          waveform[i] = triangular_gen(num_samples, i);
         }
         break;
       default:
-        for (int i = 0; i < numSamples; i++) {
+        for (uint8_t i = 0; i < num_samples; i++) {
           waveform[i] = 0;
         }
         break;
     }
   }
-}
+
 
 void Magnet_Control::set_DC(bool input_polarity, float input_power) {
   magnet_mode = 0;            //DC
   polarity = input_polarity;  // set polarity
-  power = input_power         // set power
+  power = input_power;         // set power
 }
 
 void Magnet_Control::set_AC(float input_frequency, float input_power) {
   magnet_mode = 1;  //AC
   frequency = input_frequency;
   power = input_power;
-  interval = 1000000 / (num_samples * frequency)
+  interval = 1000000 / (num_samples * frequency);
 }
 
 void Magnet_Control::turn_on() {
@@ -136,7 +135,7 @@ void Magnet_Control::update_magnet() {
       if (current_millis - previous_millis >= interval) {  // if time's up
         previous_millis = current_millis;
 
-        int pwm_value = waveform[current_index];
+        uint8_t pwm_value = waveform[current_index];
 
         if (pwm_value >= 0) {
           analogWrite(_INA, pwm_value * power * 2.55);  // N, power from 100 -> 255
@@ -146,27 +145,27 @@ void Magnet_Control::update_magnet() {
           digitalWrite(_INA, LOW);
         }
 
-        currentIndex = (currentIndex + 1) % numSamples;  // go to next index
+        current_index = (current_index + 1) % num_samples;  // go to next index
       }
     }
   }
 }
 
-bool Magnet_Control::set_magnet(bool state_input, bool mode_input, bool polarity_input, int power_input, float frequency_input){
+bool Magnet_Control::set_magnet(bool state_input, bool mode_input, bool polarity_input, uint8_t power_input, float frequency_input){
   state = state_input;
   magnet_mode = mode_input;
   polarity = polarity_input;
   power = power_input;
-  frequency = frequency_input
+  frequency = frequency_input;
 
   if (magnet_mode == 0){ //DC
     set_DC(polarity, power);
-  }else if(magnet_mode == 1){//AC
+  } else if(magnet_mode == 1){//AC
     set_AC(frequency, power);
   }else{
-    return 0
+    return 0;
   }
-  return 1
+  return 1;
 }
 
 bool Magnet_Control::get_state() {

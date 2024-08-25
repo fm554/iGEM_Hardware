@@ -21,8 +21,8 @@ void OLED_Display::update_display(bool isOn, bool isAC, float voltage, float cur
   // Draw vertical divider line at 1/3rd of the width (around 42 pixels)
   u8g2.drawLine(42, 0, 42, 64);
 
-  // Set font for the left side text (bigger and bold font)
-  u8g2.setFont(u8g2_font_courB12_tf);
+  // Set font for the left side text 
+  u8g2.setFont(u8g2_font_6x10_tr);
 
   // ON/OFF section
   if (isOn) {
@@ -47,7 +47,6 @@ void OLED_Display::update_display(bool isOn, bool isAC, float voltage, float cur
   }
 
   // Set font for the right side text (smaller font)
-  u8g2.setFont(u8g2_font_6x10_tr);
 
   // Display current
   u8g2.setCursor(50, 15);

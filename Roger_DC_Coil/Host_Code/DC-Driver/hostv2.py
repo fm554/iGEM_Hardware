@@ -7,6 +7,8 @@ import quick_serial
 import asyncio
 import threading
 
+import json
+
 class ControlPanel(QWidget):
     def __init__(self):
         super().__init__()
@@ -185,14 +187,25 @@ class ControlPanel(QWidget):
         self.serial_combo.addItems(ports)
         if self.serial_combo.currentText() not in ports:
             self.set_status("Disconnected")
-        
+    
 
     def get_param(self):
         if self.mode != "NA":
-            param_sum = f"{self.state},{self.mode},{self.pole},{self.power},{self.freq}"
-            return f"{param_sum}"
+            # Create a dictionary with the parameters
+            params = {
+                "state": self.state,
+                "m_mode": self.mode,
+                "pol": self.pole,
+                "pwr": self.power,
+                "freq": self.freq
+            }
+            
+            # Serialize the dictionary to a JSON string
+            param_json = json.dumps(params)
+            return param_json
         else:
             return "NA"
+
 
     def connect_magnet(self):
         port = self.serial_combo.currentText()
