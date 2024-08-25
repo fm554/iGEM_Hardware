@@ -18,6 +18,6 @@ public:
   // update OLED display
 
   void update_display(bool isOn, bool isAC, float voltage, float current, float frequency);
-}
+};
 
 #endif 

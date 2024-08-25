@@ -45,6 +45,6 @@ public:
   float read_voltage();
   float read_current();
   float read_hall();
-}
+};
 
 #endif 

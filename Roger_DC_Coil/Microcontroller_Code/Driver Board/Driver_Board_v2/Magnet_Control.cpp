@@ -8,7 +8,7 @@ Magnet_Control::Magnet_Control(int EN, int INA, int INB) {
 }
 
 // generate one of three wave forms
-int16_t Magnet_Control::square(int size, int position) {
+int16_t Magnet_Control::ssquare(int size, int position) {
   /**
   generate one wavelength of square wave. 
   input : size - total number of points

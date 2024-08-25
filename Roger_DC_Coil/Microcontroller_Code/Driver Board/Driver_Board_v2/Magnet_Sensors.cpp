@@ -2,7 +2,7 @@
 
 float Magnet_Sensors::average_read(int num_samples, int pin) {
   int sum = 0;
-  for (int i = 0, i < num_samples, i++) {
+  for (int i = 0; i < num_samples; i++) {
     sum += analogRead(pin);
   }
   return sum / num_samples;
@@ -44,19 +44,22 @@ bool Magnet_Sensors::read_switch() {
 
 float Magnet_Sensors::read_voltage() {
   int sensor_value = average_read(num_average_read, voltage_pin);
-  float voltage = sensor_value* 5.0 / 1023.0  // 1024 -> 5
-                  float adjusted_voltage = voltage_sensitivitiy * (voltage - zero_voltage_offset) return adjusted_voltage
+  float voltage = sensor_value* 5.0 / 1023.0 ; // 1024 -> 5
+  float adjusted_voltage = voltage_sensitivitiy * (voltage - zero_voltage_offset); 
+                  
+  return adjusted_voltage;
 }
 
 float Magnet_Sensors::read_current() {
   int sensor_value = average_read(num_average_read, current_pin);
   float voltage = sensor_value* 5.0 / 1023.0  // 1024 -> 5
-                  float adjusted_current = current_sensitivitiy * (voltage - zero_current_offset) return adjusted_current
+  float adjusted_current = current_sensitivity * (voltage - zero_current_offset);
+  return adjusted_current;
 }
 
 float Magnet_Sensors::read_hall() {
   int sensor_value = average_read(num_average_read, hall_pin);
   float voltage = sensor_value * 5.0 / 1023.0;  // 1024 -> 5
   float adjusted_magnetism = magnetism_sensitivitiy * (voltage - zero_magnetism_offset);
-  return adjusted_magnetism
+  return adjusted_magnetism;
 }

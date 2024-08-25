@@ -1,5 +1,6 @@
 #include "OLED_Display.h"
-
+#include <U8g2lib.h>
+#include <Wire.h>
 // Constructor to initialize the display
 OLED_Display::OLED_Display()
   : u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE) {}
