@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-class Magnet_Controller {
+class Magnet_Control {
   private:
     int _INA;
     int _INB;
@@ -30,7 +30,7 @@ class Magnet_Controller {
   public:
     float frequency = 0.5;
 
-    Magnet_Controller(int EN, int INA, int INB);
+    Magnet_Control(int EN, int INA, int INB);
 
     void init();
     void set_waveform(byte wavetype);
