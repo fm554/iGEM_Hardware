@@ -4,16 +4,11 @@ from PyQt6.QtGui import QIcon, QPixmap, QImage, QFont, QTextCursor
 from PyQt6 import QtCore
 from PyQt6.QtCore import pyqtSlot, QTimer, Qt, QThread, pyqtSignal
 import PyQt6.QtWidgets
-from qtwidgets import Toggle
 from PIL import Image, ImageQt
-
-
 import PyQt6
-try:
-	import PIL.ImageTk
-	import picamera2
-except:
-	print("No RPI")
+
+import picamera2
+
 
 class App(QMainWindow):
 	def __init__(self):
