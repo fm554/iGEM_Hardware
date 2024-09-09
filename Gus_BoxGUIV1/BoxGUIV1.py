@@ -205,7 +205,7 @@ class SystemTestTab(QWidget):
 		super(QWidget, self).__init__(parent)
 
 		layout = QVBoxLayout()
-
+	
 		imaging_mode_layout = QHBoxLayout()
 		std_img_mode_label = QLabel("Standard\nImaging")
 		std_img_mode_label.setAlignment(QtCore.Qt.AlignCenter)
