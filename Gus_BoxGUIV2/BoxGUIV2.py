@@ -11,6 +11,10 @@ import picamera2
 
 import subprocess
 import time
+import serial
+
+global serial_port
+serial_port=serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
 
 class App(QMainWindow):
 	def __init__(self):
@@ -193,7 +197,7 @@ class CameraWidget(QWidget):
 		# self.label.setPixmap(pix)
 		# self.label.setMinimumSize(0, 0)
 		if self.savenext:
-			pix.save(("Saved: " + "./Captures/"+self.savename+".png"))
+			pix.save(("./Captures/"+self.savename+".png"))
 			print("Saved: " + "./Captures/"+self.savename+".png")
 			self.savenext = False
 		
@@ -201,7 +205,6 @@ class CameraWidget(QWidget):
 
 	@pyqtSlot(str)
 	def on_shutter(self, name):
-		print("Hitting")
 		self.savenext = True
 		self.savename = name
 
