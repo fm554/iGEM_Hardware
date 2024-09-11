@@ -6,12 +6,24 @@ from PyQt6.QtCore import pyqtSlot, QTimer, Qt, QThread, pyqtSignal
 import PyQt6.QtWidgets
 from PIL import Image, ImageQt
 import PyQt6
+import gpiod
+from magenta_lib import img_mode
 
 import picamera2
 
 import subprocess
 import time
 import serial
+
+white_GPIO = 23
+blue_GPIO = 24
+chip = gpiod.Chip('gpiochip0')
+global white_line
+white_line = chip.get_line(white_GPIO)
+white_line.request(consumer="LED", type=gpiod.LINE_REQ_DIR_OUT)
+global blue_line
+blue_line = chip.get_line(blue_GPIO)
+blue_line.request(consumer="LED", type=gpiod.LINE_REQ_DIR_OUT)
 
 global serial_port
 serial_port=serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
@@ -416,20 +428,25 @@ class SystemTestTab(QWidget):
 			self.fluoro_toggle.setEnabled(True)
 			if self.fluoro_toggle.isChecked():
 				print("On: Fluorescent")
+				img_mode(serial_port, 2, white_line, blue_line)
 			else:
 				print("On: Standard")
+				img_mode(serial_port, 1, white_line, blue_line)
 		else:
 			self.fluoro_toggle.setEnabled(False)
 			print("Off")
+			img_mode(serial_port, 0, white_line, blue_line)
 	
 	@pyqtSlot()
 	def on_fluoro_toggle(self):
 		if self.fluoro_toggle.isChecked():
 			print("On: Fluorescent")
+			img_mode(serial_port, 2, white_line, blue_line)
 			# turn on blue light
 			# change servo angle
 		else:
 			print("On: Standard")
+			img_mode(serial_port, 1, white_line, blue_line)
 
 	@pyqtSlot()
 	def on_energise_x(self):
