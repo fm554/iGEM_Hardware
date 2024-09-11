@@ -1,19 +1,32 @@
 import sys
-from PyQt6.QtWidgets import QMainWindow, QApplication, QPushButton, QCheckBox, QWidget, QCheckBox, QTabWidget,QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QFrame, QGridLayout
+from PyQt6.QtWidgets import QMainWindow, QApplication, QPushButton, QCheckBox, QWidget, QCheckBox, QTabWidget,QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QFrame, QGridLayout, QLineEdit
 from PyQt6.QtGui import QIcon, QPixmap, QImage, QFont, QTextCursor
 from PyQt6 import QtCore
 from PyQt6.QtCore import pyqtSlot, QTimer, Qt, QThread, pyqtSignal
 import PyQt6.QtWidgets
-from qtwidgets import Toggle
 from PIL import Image, ImageQt
-
-
 import PyQt6
-try:
-	import PIL.ImageTk
-	import picamera2
-except:
-	print("No RPI")
+import gpiod
+from magenta_lib import img_mode
+
+import picamera2
+
+import subprocess
+import time
+import serial
+
+white_GPIO = 23
+blue_GPIO = 24
+chip = gpiod.Chip('gpiochip0')
+global white_line
+white_line = chip.get_line(white_GPIO)
+white_line.request(consumer="LED", type=gpiod.LINE_REQ_DIR_OUT)
+global blue_line
+blue_line = chip.get_line(blue_GPIO)
+blue_line.request(consumer="LED", type=gpiod.LINE_REQ_DIR_OUT)
+
+global serial_port
+serial_port=serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
 
 class App(QMainWindow):
 	def __init__(self):
@@ -21,11 +34,13 @@ class App(QMainWindow):
 		self.title = 'MagentaBase (V1)'
 		self.left = 200
 		self.top = 200
-		self.width = 400    
+		self.width = 800    
 		self.height = 600
 		self.setWindowTitle(self.title)
 		self.setGeometry(self.left, self.top, self.width, self.height)
-		
+		# self.setMinimumHeight(self.height)
+		# self.setMinimumWidth(800)
+		# self.setMaximumWidth(800)
 		self.setCentralWidget(OverallView(self))
 	
 		self.show()
@@ -39,27 +54,22 @@ class OverallView(QWidget):
 
 		#cameras_widget
 		self.cameras_widget = CameraView(self)
-		self.cameras_widget.resize(parent.width,250)
 		vlayout.addWidget(self.cameras_widget)
 
-
 		self.tab_widget = TabLayout(self)
-		self.tab_widget.setMinimumHeight(250)
-		self.tab_widget.resize(parent.width,250)
 		vlayout.addWidget(self.tab_widget)
 
 		self.textbox = QTextEdit(self)
-		self.textbox.resize(parent.width, 100)
-		self.textbox.setMinimumHeight(100)
 		self.text_update.connect(self.append_text)
 		sys.stdout = self
 		print("Started Up")
 
-		# vlayout.addWidget(self.cam_widget)
-	
 		vlayout.addWidget(self.textbox)
+		vlayout.addStretch()
 		self.setLayout(vlayout)
-		# vlayout.addWidget(self.textbox)
+
+		self.tab_widget.Imaging.capture_img.connect(self.cameras_widget.camera_widget.on_shutter)
+		self.tab_widget.Imaging.capture_thermal.connect(self.cameras_widget.thermal_cam.on_shutter)
 
 	def write(self, text):
 		self.text_update.emit(str(text))
@@ -90,7 +100,7 @@ class CameraView(QWidget):
 
 		cam_labels_hlayout.addWidget(QLabel("<b>Camera:</b>"))
 		self.missed_frames = QLabel("Missed Frames: ???")
-		self.missed_frames.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight)
+		self.missed_frames.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
 
 		cam_labels_hlayout.addWidget(self.missed_frames)
 
@@ -100,9 +110,19 @@ class CameraView(QWidget):
 		self.camera_widget.frame_miss_count.connect(self.update_label)
 		cam_vlayout.addWidget(self.camera_widget)
 
-		hlayout.addLayout(cam_vlayout)
-		#hlayout.addWidget(self.camera_widget)
+		thermal_vlayout = QVBoxLayout()
+		thermal_labels_hlayout = QHBoxLayout()
+		thermal_labels_hlayout.addWidget(QLabel("<b>Thermal Camera:</b>"))
+		self.thermal_missed_frames = QLabel("Missed Frames: ???")
+		self.thermal_missed_frames.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+		thermal_labels_hlayout.addWidget(self.thermal_missed_frames)
 
+		thermal_vlayout.addLayout(thermal_labels_hlayout)
+		self.thermal_cam = ThermalWidget(self)
+		thermal_vlayout.addWidget(self.thermal_cam)
+		hlayout.addLayout(cam_vlayout)
+		hlayout.addLayout(thermal_vlayout)
+		self.thermal_cam.thermal_frame_miss_count.connect(self.update_thermal_label)
 		self.setLayout(hlayout)
 
 			# camera_widget = CameraWidget()
@@ -111,20 +131,26 @@ class CameraView(QWidget):
 	@pyqtSlot(int)
 	def update_label(self, count):
 		self.missed_frames.setText("Missed Frames: " + str(count))
+	
+	@pyqtSlot(int)
+	def update_thermal_label(self, count):
+		self.thermal_missed_frames.setText("Missed Frames: " + str(count))
 
 class CameraFrameCapture(QThread):
 	frame_captured = pyqtSignal(object)
 	frame_missed = pyqtSignal(object)
-	def __init__(self, camera, parent):
+	def __init__(self, camera, shutter, parent):
 		QThread.__init__(self, parent)
 		self.camera = camera
 	def run(self):
 		try:
 			image = self.camera.capture_image()
 			image = image.convert("RGBA")
+			
 			data = image.tobytes("raw", "RGBA")
 			qim = ImageQt.ImageQt(image)
 			pix = PyQt6.QtGui.QPixmap.fromImage(qim)
+
 
 			self.frame_missed.emit(0)
 			self.frame_captured.emit(pix)
@@ -140,6 +166,8 @@ class CameraWidget(QWidget):
 	def __init__(self, parent):
 		super(CameraWidget, self).__init__(parent)
 		self.missed_frames_count = 0
+		self.savenext = False
+		self.savename = ""
 		try:
 			self.camera = picamera2.Picamera2()
 			self.camera.sensor_mode = 2  # Choose sensor mode 2 for 640x480 resolution
@@ -147,10 +175,9 @@ class CameraWidget(QWidget):
 			self.camera.start()
 		except:
 			self.camera = 0
-
 		self.label = QLabel()
-		self.label.setMinimumSize(0, 0)
-		self.label.resize(300, 300)
+		# self.label.setMinimumSize(0, 0)
+		self.label.resize(500, 300)
 		image = Image.open('NoSignal.png')
 		self.pixmap = ImageQt.toqpixmap(image)
 		self.label.setPixmap(self.pixmap.scaled(self.label.width(), self.label.height(), aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio))
@@ -164,7 +191,7 @@ class CameraWidget(QWidget):
 		self.timer.start(int(1000 / 5))
 
 	def start_capture(self):
-		frame_capture_thread = CameraFrameCapture(self.camera, parent=self)
+		frame_capture_thread = CameraFrameCapture(self.camera, self.savenext, parent=self)
 		frame_capture_thread.frame_captured.connect(self.on_frame_ready)
 		frame_capture_thread.frame_missed.connect(self.update_missed)
 		frame_capture_thread.start()
@@ -179,9 +206,104 @@ class CameraWidget(QWidget):
 
 	@pyqtSlot(object)
 	def on_frame_ready(self, pix):
-		#self.label.setPixmap(pix)
+		# self.label.setPixmap(pix)
 		# self.label.setMinimumSize(0, 0)
+		if self.savenext:
+			pix.save(("./Captures/"+self.savename+".png"))
+			print("Saved: " + "./Captures/"+self.savename+".png")
+			self.savenext = False
+		
 		self.label.setPixmap(pix.scaled(self.label.width(), self.label.height(), aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio))
+
+	@pyqtSlot(str)
+	def on_shutter(self, name):
+		self.savenext = True
+		self.savename = name
+
+class ThermalFrameCapture(QThread):
+	thermal_frame_captured = pyqtSignal(object)
+	thermal_frame_missed = pyqtSignal(object)
+	def __init__(self, parent):
+		QThread.__init__(self, parent)
+		
+	def run(self):
+		try:
+			with subprocess.Popen(["sudo", "./Gus_BoxGUIV2/rawrgb", "{}".format(8)], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as therm_camera:
+				frame1 = therm_camera.stdout.read(2304)
+				time.sleep(1.0 / 8.0)
+
+				frame2 = therm_camera.stdout.read(2304)
+				time.sleep(1.0 / 8.0)
+
+				frame3 = therm_camera.stdout.read(2304)
+				time.sleep(1.0 / 8.0)
+
+
+				image = Image.frombytes('RGB', (32, 24), frame3)
+						
+				qim = ImageQt.ImageQt(image)
+				pix = PyQt6.QtGui.QPixmap.fromImage(qim)
+
+				self.thermal_frame_missed.emit(0)
+				self.thermal_frame_captured.emit(pix)
+
+		except:
+			image = Image.open('NoSignal.png')
+			pix = ImageQt.toqpixmap(image)
+			self.thermal_frame_missed.emit(1)
+			self.thermal_frame_captured.emit(pix)
+
+class ThermalWidget(QWidget):
+	thermal_frame_miss_count = pyqtSignal(int)
+	def __init__(self, parent):
+		super(ThermalWidget, self).__init__(parent)
+		self.missed_frames_count = 0
+		self.savename = ""
+		self.savenext = False
+
+		self.label = QLabel()
+		# self.label.setMinimumSize(0, 0)
+		self.label.resize(500, 500)
+		image = Image.open('NoSignal.png')
+		self.pixmap = ImageQt.toqpixmap(image)
+		self.label.setPixmap(self.pixmap.scaled(self.label.width(), self.label.height(), aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio))
+		self.label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+		layout = QHBoxLayout()
+		layout.addWidget(self.label)
+		self.setLayout(layout)
+
+		self.timer = QTimer()
+		self.timer.timeout.connect(self.start_capture)
+		self.timer.start(int(1000/2))
+
+	def start_capture(self):
+		thermal_frame_capture_thread = ThermalFrameCapture(parent=self)
+		thermal_frame_capture_thread.thermal_frame_captured.connect(self.on_frame_ready)
+		thermal_frame_capture_thread.thermal_frame_missed.connect(self.update_missed)
+		thermal_frame_capture_thread.start()
+
+	@pyqtSlot(object)
+	def update_missed(self, val):
+		if val == 0:
+			self.missed_frames_count = 0
+		if val == 1:
+			self.missed_frames_count += 1
+		self.thermal_frame_miss_count.emit(self.missed_frames_count)
+
+	@pyqtSlot(object)
+	def on_frame_ready(self, pix):
+		# self.label.setPixmap(pix)
+		# self.label.setMinimumSize(0, 0)
+		if self.savenext:
+			pix.save(("./Captures/"+self.savename+".png"))
+			print("Saved: " + "./Captures/"+self.savename+".png")
+			self.savenext = False
+		self.label.setPixmap(pix.scaled(self.label.width(), self.label.height(), aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio))
+	
+	@pyqtSlot(str)
+	def on_shutter(self,name):
+		self.savenext=True
+		self.savename=name
 
 class TabLayout(QWidget):
 	def __init__(self, parent):
@@ -306,20 +428,25 @@ class SystemTestTab(QWidget):
 			self.fluoro_toggle.setEnabled(True)
 			if self.fluoro_toggle.isChecked():
 				print("On: Fluorescent")
+				img_mode(serial_port, 2, white_line, blue_line)
 			else:
 				print("On: Standard")
+				img_mode(serial_port, 1, white_line, blue_line)
 		else:
 			self.fluoro_toggle.setEnabled(False)
 			print("Off")
+			img_mode(serial_port, 0, white_line, blue_line)
 	
 	@pyqtSlot()
 	def on_fluoro_toggle(self):
 		if self.fluoro_toggle.isChecked():
 			print("On: Fluorescent")
+			img_mode(serial_port, 2, white_line, blue_line)
 			# turn on blue light
 			# change servo angle
 		else:
 			print("On: Standard")
+			img_mode(serial_port, 1, white_line, blue_line)
 
 	@pyqtSlot()
 	def on_energise_x(self):
@@ -370,19 +497,97 @@ class SystemTestTab(QWidget):
 		self.XCentre.setEnabled(False)
 	
 class ImagingTab(QWidget):
+	capture_img = pyqtSignal(str)
+	capture_thermal = pyqtSignal(str)
 	def __init__(self, parent):
 		super(QWidget, self).__init__(parent)
 
-		
+		hlayout  = QHBoxLayout()
+
+		r_layout = QVBoxLayout()
+		r_file_layout = QHBoxLayout()
+		r_layout.addWidget(QLabel("<b>Image<\b>"))
+		r_file_layout.addWidget(QLabel("File Name:"))
+		self.cam_file_namebox = QLineEdit()
+		r_file_layout.addWidget(self.cam_file_namebox)
+		r_layout.addLayout(r_file_layout)
+
+		self.cam_capture = QPushButton()
+		self.cam_capture.setText("Capture")
+		r_layout.addWidget(self.cam_capture)
+		r_layout.addStretch()
+		l_layout = QVBoxLayout()
+		l_file_layout = QHBoxLayout()
+		l_layout.addWidget(QLabel("<b>Thermal Image<\b>"))
+		l_file_layout.addWidget(QLabel("File Name:"))
+		self.therm_file_namebox = QLineEdit()
+		l_file_layout.addWidget(self.therm_file_namebox)
+		l_layout.addLayout(l_file_layout)
+
+		self.therm_capture = QPushButton()
+		self.therm_capture.setText("Capture")
+		l_layout.addWidget(self.therm_capture)
+		l_layout.addStretch()
+		hlayout.addLayout(r_layout)
+		hlayout.addLayout(l_layout)
+
+		self.setLayout(hlayout)
+
+		#logic
+		self.cam_capture.clicked.connect(self.on_cam_capture)
+		self.therm_capture.clicked.connect(self.on_therm_capture)
 
 
-
-	#TODO
+	@pyqtSlot()
+	def on_cam_capture(self):
+		print("Photo")
+		self.capture_img.emit(self.cam_file_namebox.text())
+	def on_therm_capture(self):
+		print("Capture")
+		self.capture_thermal.emit(self.therm_file_namebox.text())	
 
 class ProtocolsTab(QWidget):
 	def __init__(self, parent):
 		super(QWidget, self).__init__(parent)
-	#TODO
+		#support for up to 6 protocols
+		self.p1 = QPushButton()
+		self.p1.setText("P1")
+		self.p2 = QPushButton()
+		self.p2.setText("P2")
+		self.p3 = QPushButton()
+		self.p3.setText("P3")
+		self.p4 = QPushButton()
+		self.p4.setText("P4")
+		self.p5 = QPushButton()
+		self.p5.setText("P5")
+		self.p6 = QPushButton()
+		self.p6.setText("P6")
+
+		self.cancel = QPushButton()
+		self.cancel.setText("Cancel")
+		self.cancel.setStyleSheet("background-color : red")
+
+		grid_layout = QGridLayout()
+		grid_layout.addWidget(self.p1, 0, 0)
+		grid_layout.addWidget(self.p2, 0, 1)
+		grid_layout.addWidget(self.p3, 0, 2)
+		grid_layout.addWidget(self.p4, 1, 0)
+		grid_layout.addWidget(self.p5, 1, 1)
+		grid_layout.addWidget(self.p6, 1, 2)
+		grid_layout.addWidget(self.cancel, 2, 2)
+
+		self.setLayout(grid_layout)
+
+		self.disable()
+
+	def disable(self):
+		self.p1.setEnabled(False)
+		self.p2.setEnabled(False)
+		self.p3.setEnabled(False)
+		self.p4.setEnabled(False)
+		self.p5.setEnabled(False)
+		self.p6.setEnabled(False)
+		
 	
 if __name__ == '__main__':
 	app = QApplication(sys.argv)
