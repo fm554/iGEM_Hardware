@@ -7,7 +7,7 @@ import PyQt6.QtWidgets
 from PIL import Image, ImageQt
 import PyQt6
 import gpiod
-from magenta_lib import img_mode
+from magenta_lib import img_mode, move_motor, calibrate_motor, write_display
 
 import picamera2
 
@@ -27,6 +27,7 @@ blue_line.request(consumer="LED", type=gpiod.LINE_REQ_DIR_OUT)
 
 global serial_port
 serial_port=serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
+time.sleep(5)
 
 class App(QMainWindow):
 	def __init__(self):
@@ -350,18 +351,6 @@ class SystemTestTab(QWidget):
 	
 		coil_energise_layout.addWidget(self.energise_x)
 		coil_energise_layout.addWidget(self.energise_y)
-
-		# right_layout.addWidget(QLabel("<b>Imaging Mode:<\b>"))
-		# right_layout.addLayout(imaging_mode_layout)
-		# right_layout.addWidget(QLabel("<b>Coils:<\b>"))
-		# right_layout.addLayout(coil_energise_layout)
-		# right_layout.setContentsMargins(0, 0, 0, 0)
-		# right_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-		# right_frame.setLayout(right_layout)
-
-
-		# left_layout = QVBoxLayout()
-		# left_layout.addWidget(QLabel("<b>X Motor:<\b>"))
 		
 		XButtons_layout = QHBoxLayout()
 		self.XCalibrate = QPushButton()
@@ -395,20 +384,6 @@ class SystemTestTab(QWidget):
 		YButtons_layout.addWidget(self.YCalibrate)
 		YButtons_layout.addWidget(self.Y0)
 		YButtons_layout.addWidget(self.YCentre)
-		# left_layout.addLayout(YButtons_layout)
-
-		
-		# rl_layout = QHBoxLayout()
-		# rl_layout.addWidget(right_frame)
-		# rl_layout.addLayout(left_layout)
-		# rl_layout.setContentsMargins(10, 10, 10, 10)
-
-		# ovl_frame  = QFrame()
-		# ovl_frame.setFrameShape(QFrame.Shape.VLine)
-		# ovl_frame.setLayout(rl_layout)
-
-		# ovl = QHBoxLayout()
-		# ovl.addWidget(ovl_frame)
 
 		overall_layout = QGridLayout()
 		overall_layout.addWidget(QLabel("<b>Imaging Mode:<\b>"), 0, 0)
@@ -469,31 +444,37 @@ class SystemTestTab(QWidget):
 	@pyqtSlot()
 	def on_xcalibrate(self):
 		print("X Stage: calibrate")
+		calibrate_motor(serial_port, "X")
 		self.YCentre.setEnabled(True)	
 
 	@pyqtSlot()
 	def on_x0(self):
 		print("X Stage: 0")
+		move_motor(serial_port, "X", 0)
 		self.YCentre.setEnabled(True)
 	
 	@pyqtSlot()
 	def on_xcentre(self):
-		print("X Stag: centre")
+		print("X Stage: centre")
+		move_motor(serial_port, "X", 42)
 		self.YCentre.setEnabled(False)
 
 	@pyqtSlot()
 	def on_ycalibrate(self):
 		print("Y Stage: calibrate")
+		calibrate_motor(serial_port, "Y")
 		self.XCentre.setEnabled(True)	
 
 	@pyqtSlot()
 	def on_y0(self):
 		print("Y Stage: 0")
+		move_motor(serial_port, "Y", 0)
 		self.XCentre.setEnabled(True)
 	
 	@pyqtSlot()
 	def on_ycentre(self):
 		print("Y Stage: centre")
+		move_motor(serial_port, "Y", 42)
 		self.XCentre.setEnabled(False)
 	
 class ImagingTab(QWidget):

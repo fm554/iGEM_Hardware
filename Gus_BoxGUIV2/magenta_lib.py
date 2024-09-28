@@ -22,15 +22,18 @@ def coil_power():
     #TODO
     pass
 
-def move_motor(serial):
-    pass
+def move_motor(serial, motor, position):
+    msg = motor + " Motor: " + str(position) + "\n"
+    serial.write(msg.encode('utf-8'))
 
-def calibrate_motor():
-    pass
-def write_display():
-    pass
+def calibrate_motor(serial, motor):
+    msg = "Calibrate: " + motor + "\n"
+    serial.write(msg.encode('utf-8'))
+def write_display(serial, string):
+    #max 16 characters
+    serial.write(string)
 
-
+# print(type(b"test"))
 # white_GPIO = 23
 # blue_GPIO = 24
 # serial_port=serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
@@ -39,6 +42,12 @@ def write_display():
 # white_line.request(consumer="LED", type=gpiod.LINE_REQ_DIR_OUT)
 # blue_line = chip.get_line(blue_GPIO)
 # blue_line.request(consumer="LED", type=gpiod.LINE_REQ_DIR_OUT)
+
+# serial_port=serial.Serial('/dev/ttyUSB0', 9600, timeout=1)
+# time.sleep(5)
+# calibrate_motor(serial_port, "X")
+# move_motor(serial_port, "X", 20.5)
+#move_motor(serial_port, "X", 20)
 
 
 # try:
