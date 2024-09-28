@@ -32,7 +32,7 @@ time.sleep(5)
 class App(QMainWindow):
 	def __init__(self):
 		super().__init__()
-		self.title = 'MagentaBase (V1)'
+		self.title = 'MagentaBox (V2)'
 		self.left = 200
 		self.top = 200
 		self.width = 800    
@@ -212,6 +212,10 @@ class CameraWidget(QWidget):
 		if self.savenext:
 			pix.save(("./Captures/"+self.savename+".png"))
 			print("Saved: " + "./Captures/"+self.savename+".png")
+			request = self.camera.capture_request()
+			metadata= request.get_metadata()
+			request.release()
+			print("Metadata:", metadata)
 			self.savenext = False
 		
 		self.label.setPixmap(pix.scaled(self.label.width(), self.label.height(), aspectRatioMode=Qt.AspectRatioMode.KeepAspectRatio))
