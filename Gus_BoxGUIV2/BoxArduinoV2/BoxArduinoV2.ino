@@ -1,6 +1,7 @@
 #include <LiquidCrystal_I2C.h>
 #include <Wire.h>
 #include <Servo.h>
+#include <Stepper.h>
 
 //wiring notes
 //lcd display: sda -> a4, scl -> a5
@@ -22,50 +23,123 @@
 // "Calibrate: X"
 // "X Motor: val"
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+#define ySensorPin A0
+#define xSensorPin A1
+//
+//LiquidCrystal_I2C lcd(0x27, 16, 2);
 Servo filter_servo;
-int position;
+const int stepsPerRevolution = 20;
+const float revsPerMM= 1.9984;
+Stepper xstepper = Stepper(20, 8,9,10,11);
+//Stepper ystepper = Stepper(20, 2,3,4,5);
+
+float x_position = 0;
+float y_position = 0;
+float to_position;
 String target_motor;
+
 void setup() {
   Serial.begin(9600);
-  lcd.init();
-  lcd.backlight();
+//  
+//  lcd.init();
+//  lcd.backlight();
+  
   filter_servo.attach(12);  // attaches the servo on pin 9 to the servo object
-  filter_servo.write(135);
+  filter_servo.write(110);
+
+  xstepper.setSpeed(400);
+//  ystepper.setSpeed(400);
+//  ystepper.step(200);
+//  ystepper.step(-200);
+////  
+//  calibrate("X");
+//  calibrate("Y");
+////
+//  move_motor("X", 10);
+//  move_motor("X", 0);
 }
 
 void loop() {
   if (Serial.available() > 0) {
     String data = Serial.readStringUntil('\n');
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print(data);
-    
+//    lcd.clear();
+//    lcd.setCursor(0,0);
+//    lcd.print(data);
+//    
 
     if (data == "Img: std"){
-      filter_servo.write(120); //out
+      filter_servo.write(130); //out
     }
     else if  (data == "Img: fluoro"){
-      filter_servo.write(177); //in
+      filter_servo.write(175); //in
     }
     else if (data.substring(0,9) == "Calibrate"){
       String target_motor = data.substring(11);
-//      calibrate_motor(target_motor);
+      calibrate(target_motor);
     }
-    else if (data.substring(0, 8) == "X Motor"){
-      position = data.substring(9).toInt();
-//      move_motor("X", position);
+    else if (data.substring(0, 7) == "X Motor"){
+      to_position = data.substring(9).toFloat();
+      move_motor("X", to_position);
     }
-    else if (data.substring(0, 8) == "Y Motor"){
-      int position = data.substring(9).toInt();
-//      move_motor("Y", position);
+    else if (data.substring(0, 7) == "Y Motor"){
+      to_position = data.substring(9).toFloat();
+      move_motor("Y", to_position);
     }
-    else {
-      lcd.setCursor(0,1);
-      lcd.print("___");
-    }
+//    else {
+//      lcd.setCursor(0,1);
+//      lcd.print("___");
+//    }
   }
 }
+
+
+int readSensor(int sensor) {
+  int sensorValue;
+  if (sensor == 0){
+    sensorValue = analogRead(xSensorPin);
+  }
+  else {
+    sensorValue = analogRead(ySensorPin);
+  }
+  int outputValue = map(sensorValue, 0, 1023, 255, 0); 
+  return outputValue;     
+}       
+
+void calibrate(String target_motor){
+  if (target_motor == "X"){
+    if (readSensor(0)>=150){
+      xstepper.step(300);
+    }
+    while(readSensor(0)<=150){
+      xstepper.step(-20);
+    }
+    x_position = 0;
+  }
+//  else if (target_motor == "Y"){
+//    if (readSensor(1)>=150){
+//      ystepper.step(300);
+//    }
+//    while(readSensor(1)<=150){
+//      ystepper.step(-20);
+//    }
+//    y_position = 0;
+//  }
+}
+
+void move_motor(String target_motor, float to_position){
+  if (target_motor == "X"){
+    int steps_to_move = (to_position-x_position)*revsPerMM*stepsPerRevolution;
+    xstepper.step(steps_to_move);
+    x_position = to_position;
+  }
+//  else if (target_motor == "Y"){
+//    int steps_to_move = (to_position-y_position)*revsPerMM*stepsPerRevolution;
+//    ystepper.step(steps_to_move);
+//    y_position = to_position;
+//  }
+}
+
+
 //
 //void calibrate_motor(String target_motor){
 // //from Lisa
